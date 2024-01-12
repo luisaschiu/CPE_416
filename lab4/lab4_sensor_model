@@ -1,0 +1,118 @@
+#include "globals.h"
+#include <util/delay.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include <stdlib.h>
+#include <math.h>
+
+#define LEFT_MOTOR 0
+#define RIGHT_MOTOR 1
+#define LEFT_SENSOR 0
+#define RIGHT_SENSOR 1
+#define INIT_SPEED 5
+#define MIN_SPEED -20
+#define MAX_SPEED 15
+#define Kp 1.45
+#define MOTOR_CAL 1.1811
+#define SENSOR_READ_DELAY 100
+#define MAX_DELTA 255
+#define RANGE_SENSOR_PIN 2
+
+#define num_particles 100
+#define a_free
+#define b_free
+#define c_free
+#define d_free
+#define a_tower
+#define b_tower
+#define c_tower
+#define d_tower
+#define location_tolerance 2 // if a value is less than 2 degrees away
+
+#define num_tower 3 // subject to change, tester value for now.
+#define target_tower 2 // subject to change, tester value for now.
+u08 probability_free_space(uint16_t);
+u08 probability_tower(uint16_t);
+void map_processing(int, int, int);
+
+float angle_array[num_particles];
+int classification_array[num_particles] = 0; //0 if free space, 1 if tower
+float weights_array[num_particles] = 0;
+
+int tower_array[num_tower];
+int tower_loc[num_tower];
+
+tower_loc[1] = 0;
+tower_loc[2] = 90;
+tower_loc[3] = 270;
+
+int main(void) {
+    init();  //initialize board hardware
+    // get user input
+    map_processing(num_tower, tower_loc, target_tower);
+    for (int i = 0; i < num_particles; ++i){
+        angle_array[i] = (360/num_particles)*i;
+    }
+    // encompass in a while loop?
+    u16 sensor_val = analog(3);
+    for (int i = 0; i < num_particles; i ++){
+        if (classification_array[i] = 0){
+            weights_array[i] = probability_free_space(sensor_val);
+            // add resampling?
+        }
+        else if (classification_array[i] = 1){
+            weights_array[i] = probability_tower(sensor_val);
+            // add resampling?
+        }
+    }
+    // move motor
+}
+
+// define which particles are towers or not, based off of given inputs.
+void map_processing(int num_tower, int tower_loc[], int target_tower){
+    for (int i = 1; i < num_tower; i ++){
+        int cur_tower_loc = tower_loc[i];
+        for (int i = 0; i < num_particles; i ++){
+            if (abs(angle_array[i]-cur_tower_loc) < location_tolerance){
+                classification_array[i] = 1;
+            }
+        }
+    }
+}
+
+// Compute probability of particle being a tower or free space
+u08 probability_free_space(uint16_t sensor_val){
+    u08 P;
+    float u_free = 2.0/(d_free + c_free - b_free - a_free);
+    if ((sensor_val >= b_free) and (sensor_val < c_free)){
+        P = u_free;
+    }
+    else if ((sensor_val >= a_free) and (sensor_val < b_free)){
+        P = u_free *((sensor_val-a_free)/(b_free-a_free));
+    }
+    else if ((sensor_val >= c_free) and (sensor_val < d_free)){
+        P = u_free *((d_free-sensor_val)/(d_free-c_free));
+    }
+    else{
+        P = 0;
+    }
+    return P;
+}
+
+u08 probability_tower(uint16_t sensor_val){
+    u08 P;
+    float u_tower = 2.0/(d_tower + c_tower - b_tower - a_tower);
+    if ((sensor_val >= b_tower) and (sensor_val < c_tower)){
+        P = u_tower;
+    }
+    else if ((sensor_val >= a_tower) and (sensor_val < b_tower)){
+        P = u_tower *((sensor_val-a_tower)/(b_tower-a_tower));
+    }
+    else if ((sensor_val >= c_tower) and (sensor_val < d_tower)){
+        P = u_tower *((d_tower-sensor_val)/(d_tower-c_tower));
+    }
+    else{
+        P = 0;
+    }
+    return P;
+}

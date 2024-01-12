@@ -1,0 +1,10 @@
+main.hex
+main.elf
+Makefile
+
+# Ignore dot files
+.*
+
+# But do track .gitignore, even though dot files are ignored
+!.gitignore
+lab4/a.exe
